@@ -66,6 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo'])) {
 
             //cambiamso el formato de fecha dia-mes-año a año-mes-dia
             $dateObj = DateTime::createFromFormat('d/m/Y', $birth);
+
+            // Validar formato de fecha
+            $dateObj = DateTime::createFromFormat('d/m/Y', $birth);
+            if (!$dateObj) {
+                // Si la fecha no tiene el formato esperado, la ignoramos o lanzamos excepción
+                throw new Exception("Formato de fecha inválido en fila " . ($i + 1));
+            }
+
             $birth = $dateObj->format('Y-m-d');
 
             // Verificar si el estudiante ya existe
@@ -97,11 +105,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo'])) {
         // Confirmar la transacción
         $db->commit();
         $_SESSION['success'] = "Se importaron $insertados estudiantes correctamente, $duplicados registros ya existian";
+
+        //validacion de errores
+    } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
+        $_SESSION['error'] = "El archivo no es un Excel válido o está dañado.";
     } catch (Exception $e) {
-        // Si ocurre un error, revertir la transacción y establecer un mensaje de error
-        if ($db->inTransaction()) {
+        if ($db->inTransaction())
             $db->rollBack();
-        }
         $_SESSION['error'] = "Error al importar: " . $e->getMessage();
     }
 
