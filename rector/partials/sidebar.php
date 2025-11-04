@@ -10,34 +10,44 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
     <nav>
         <ul class="space-y-2">
             <li>
-                <a href="dashboard.php" class="block px-4 py-2 rounded-lg <?php echo ($current_page == 'dashboard') ? 'bg-blue-700' : 'hover:bg-blue-700'; ?>">
+                <a href="dashboard.php"
+                    class="block px-4 py-2 rounded-lg <?php echo ($current_page == 'dashboard') ? 'bg-blue-700' : 'hover:bg-blue-700'; ?>">
                     <i class="fa-solid fa-bars"></i>
-                     Dashboard
+                    Dashboard
                 </a>
             </li>
             <li>
-                <a href="maestros.php" class="block px-4 py-2 rounded-lg <?php echo ($current_page == 'maestros') ? 'bg-blue-700' : 'hover:bg-blue-700'; ?>">
+                <a href="maestros.php"
+                    class="block px-4 py-2 rounded-lg <?php echo ($current_page == 'maestros') ? 'bg-blue-700' : 'hover:bg-blue-700'; ?>">
                     <i class="fa-solid fa-person-chalkboard"></i>
-                     Maestros
+                    Maestros
                 </a>
             </li>
             <li>
-                <a href="grupos.php" class="block px-4 py-2 rounded-lg <?php echo ($current_page == 'grupos') ? 'bg-blue-700' : 'hover:bg-blue-700'; ?>">
+                <a href="grupos.php"
+                    class="block px-4 py-2 rounded-lg <?php echo ($current_page == 'grupos') ? 'bg-blue-700' : 'hover:bg-blue-700'; ?>">
                     <i class="fa-solid fa-users-rays"></i>
-                     Grupos
+                    Grupos
                 </a>
             </li>
             <li>
-                <a href="reportes.php" class="block px-4 py-2 rounded-lg <?php echo ($current_page == 'reportes') ? 'bg-blue-700' : 'hover:bg-blue-700'; ?>">
+                <a href="reportes.php"
+                    class="block px-4 py-2 rounded-lg <?php echo ($current_page == 'reportes') ? 'bg-blue-700' : 'hover:bg-blue-700'; ?>">
                     <i class="fa-solid fa-file-circle-plus"></i>
-                     Reportes
+                    Reportes
                 </a>
             </li>
             <li>
-                <a href="<?php echo APP_URL; ?>/logout.php"
-                    class="block px-4 py-2 rounded-lg hover:bg-red-700">
+                <a href="solicitudes.php"
+                    class="block px-4 py-2 rounded-lg <?php echo ($current_page == 'solicitudes') ? 'bg-blue-700' : 'hover:bg-blue-700'; ?>">
+                    <i class="fa-solid fa-bell"></i>
+                    Solicitudes
+                </a>
+            </li>
+            <li>
+                <a href="<?php echo APP_URL; ?>/logout.php" class="block px-4 py-2 rounded-lg hover:bg-red-700">
                     <i class="fa-solid fa-right-from-bracket"></i>
-                     Cerrar Sesión
+                    Cerrar Sesión
                 </a>
             </li>
         </ul>
