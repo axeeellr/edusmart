@@ -67,7 +67,7 @@ if (isset($_GET['ver'])) {
 
 <body class="bg-gray-100">
     <div class="flex">
-        <!-- Sidebar (repetir el mismo de dashboard.php) -->
+        <!-- Sidebar -->
         <?php include './partials/sidebar.php'; ?>
 
         <!-- Main Content -->
@@ -155,6 +155,7 @@ if (isset($_GET['ver'])) {
                                 </form>
                             </div>
                         </div>
+
                         <!-- Tabla de estudiantes -->
                         <div class="bg-white p-6 rounded-lg shadow">
                             <h3 class="text-xl font-semibold mb-4">Estudiantes</h3>
@@ -163,18 +164,10 @@ if (isset($_GET['ver'])) {
                                     <table class="min-w-full divide-y divide-gray-200">
                                         <thead class="bg-gray-50">
                                             <tr>
-                                                <th
-                                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Nombre</th>
-                                                <th
-                                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Fecha Nac.</th>
-                                                <th
-                                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Estado</th>
-                                                <th
-                                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Acciones</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Nac.</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                                             </tr>
                                         </thead>
                                         <tbody class="bg-white divide-y divide-gray-200">
@@ -186,16 +179,42 @@ if (isset($_GET['ver'])) {
                                                     <td class="px-6 py-4 whitespace-nowrap">
                                                         <?= date('d/m/Y', strtotime($est->fecha_nacimiento)); ?>
                                                     </td>
+
+                                                    <!-- ====== CELDA DE ESTADO (CORREGIDA) ====== -->
                                                     <td class="px-6 py-4 whitespace-nowrap">
-                                                        <?= $est->estado; ?>
+                                                        <?php
+                                                        $raw = is_null($est->estado) ? '' : strtolower((string)$est->estado);
+
+                                                        $labelMap = [
+                                                            '1' => 'Activo',
+                                                            '0' => 'Inactivo',
+                                                            'activo' => 'Activo',
+                                                            'inactivo' => 'Inactivo',
+                                                            'retirado' => 'Retirado',
+                                                            'egresado' => 'Egresado',
+                                                        ];
+                                                        $classMap = [
+                                                            'Activo'   => 'bg-green-100 text-green-800',
+                                                            'Inactivo' => 'bg-red-100 text-red-800',
+                                                            'Retirado' => 'bg-yellow-100 text-yellow-800',
+                                                            'Egresado' => 'bg-blue-100 text-blue-800',
+                                                        ];
+
+                                                        $label = $labelMap[$raw] ?? ($raw === '1' ? 'Activo' : ($raw === '0' ? 'Inactivo' : 'Activo'));
+                                                        $klass = $classMap[$label] ?? 'bg-gray-100 text-gray-800';
+                                                        ?>
+                                                        <span class="px-2 py-1 rounded-full text-xs <?= $klass; ?>">
+                                                            <?= $label; ?>
+                                                        </span>
                                                     </td>
+                                                    <!-- ========================================= -->
+
                                                     <td class="px-6 py-4 whitespace-nowrap">
                                                         <a href="#" class="text-blue-500 hover:text-blue-700 ver-estudiante"
-                                                            data-id="<?= $est->id; ?>">Ver</a>
-                                                        &nbsp&nbsp&nbsp
+                                                           data-id="<?= $est->id; ?>">Ver</a>
+                                                        &nbsp;&nbsp;&nbsp;
                                                         <button class="btn-cambiar-estado text-red-700"
-                                                            data-id="<?= $est->id; ?>">Cambiar estado</button>
-
+                                                                data-id="<?= $est->id; ?>">Cambiar estado</button>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -206,16 +225,15 @@ if (isset($_GET['ver'])) {
                                 <p class="text-gray-500">No hay estudiantes registrados.</p>
                             <?php endif; ?>
                         </div>
+
                         <!-- Modal estudiante -->
                         <div id="modalEstudiante"
-                            class="hidden fixed inset-0 bg-gray-700 bg-opacity-60 flex items-center justify-center p-4 z-50">
+                             class="hidden fixed inset-0 bg-gray-700 bg-opacity-60 flex items-center justify-center p-4 z-50">
                             <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
                                 <div class="p-6">
                                     <div class="flex justify-between items-center mb-4">
-                                        <h3 class="text-xl font-semibold text-gray-800" id="nombre">Nombre del estudiante
-                                        </h3>
-                                        <button id="closeModal"
-                                            class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                                        <h3 class="text-xl font-semibold text-gray-800" id="nombre">Nombre del estudiante</h3>
+                                        <button id="closeModal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
                                     </div>
 
                                     <div id="detalles" class="space-y-2 text-gray-700">
@@ -227,29 +245,28 @@ if (isset($_GET['ver'])) {
 
                                         <h4 class="text-lg font-semibold text-gray-800">Actividades y Notas</h4>
                                         <div id="actividades"
-                                            class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm max-h-60 overflow-y-auto">
+                                             class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm max-h-60 overflow-y-auto">
                                         </div>
                                     </div>
 
                                     <div class="flex justify-end mt-4 space-x-3">
-                                        <button id="cerrarBtn"
-                                            class="px-4 py-2 border rounded-lg hover:bg-gray-100 transition">Cerrar</button>
+                                        <button id="cerrarBtn" class="px-4 py-2 border rounded-lg hover:bg-gray-100 transition">Cerrar</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
                         <!-- Modal cambiar estado de estudiante -->
                         <div id="modalCambiarEstado"
-                            class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                             class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                             <div class="bg-white rounded-xl shadow-xl w-11/12 max-w-md p-6">
                                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Cambiar estado del estudiante</h3>
-                                <!-- Opciones de estado (opcional) -->
                                 <div class="mb-4">
                                     <label for="estadoEstudiante" class="block text-sm font-medium text-gray-700 mb-1">
                                         Selecciona el nuevo estado:
                                     </label>
                                     <select id="estadoEstudiante"
-                                        class="w-full border rounded-lg px-3 py-2 focus:ring focus:ring-indigo-200 focus:border-indigo-500">
+                                            class="w-full border rounded-lg px-3 py-2 focus:ring focus:ring-indigo-200 focus:border-indigo-500">
                                         <option value="activo">Activo</option>
                                         <option value="inactivo">Inactivo</option>
                                         <option value="retirado">Retirado</option>
@@ -258,10 +275,8 @@ if (isset($_GET['ver'])) {
                                 </div>
 
                                 <div class="flex justify-end space-x-3">
-                                    <button id="cancelCambioEstado"
-                                        class="px-4 py-2 border rounded-lg hover:bg-gray-100 transition">Cancelar</button>
-                                    <button id="confirmCambioEstado"
-                                        class="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition">
+                                    <button id="cancelCambioEstado" class="px-4 py-2 border rounded-lg hover:bg-gray-100 transition">Cancelar</button>
+                                    <button id="confirmCambioEstado" class="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition">
                                         Confirmar cambio
                                     </button>
                                 </div>
@@ -276,6 +291,7 @@ if (isset($_GET['ver'])) {
             </div>
         </div>
     </div>
+
     <script src="<?= ALERTIFY ?>"></script>
     <script>
         // === Abrir modal de detalles del estudiante ===
@@ -327,11 +343,9 @@ if (isset($_GET['ver'])) {
         document.getElementById('cerrarBtn').onclick = cerrarModal;
         window.onclick = e => { if (e.target === document.getElementById('modalEstudiante')) cerrarModal(); };
 
-
-        // === Nuevo flujo: cambiar estado del estudiante ===
+        // === Cambiar estado del estudiante ===
         let estudianteSeleccionado = null;
 
-        // Botón que abre el modal de cambio de estado
         document.querySelectorAll('.btn-cambiar-estado').forEach(btn => {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
@@ -340,13 +354,11 @@ if (isset($_GET['ver'])) {
             });
         });
 
-        // Cancelar cambio de estado
         document.getElementById('cancelCambioEstado').addEventListener('click', () => {
             estudianteSeleccionado = null;
             document.getElementById('modalCambiarEstado').classList.add('hidden');
         });
 
-        // Confirmar cambio de estado
         document.getElementById('confirmCambioEstado').addEventListener('click', () => {
             if (!estudianteSeleccionado) return;
 
@@ -366,11 +378,8 @@ if (isset($_GET['ver'])) {
                         alertify.error('Algo salio mal');
                     } else {
                         alertify.success('Cambio exitoso');
-                        setTimeout(() => {
-                            location.reload();
-                        }, 1700);
+                        setTimeout(() => { location.reload(); }, 1700);
                     }
-
                     estudianteSeleccionado = null;
                     document.getElementById('modalCambiarEstado').classList.add('hidden');
                 })
@@ -382,8 +391,5 @@ if (isset($_GET['ver'])) {
                 });
         });
     </script>
-
-
 </body>
-
 </html>
