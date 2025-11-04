@@ -38,7 +38,7 @@ $info = $db->single();
 
 // Obtener estudiantes del grupo
 $db->query("SELECT id, nombre_completo FROM estudiantes 
-           WHERE grupo_id = :grupo_id AND activo = 1 
+           WHERE grupo_id = :grupo_id 
            ORDER BY nombre_completo");
 $db->bind(':grupo_id', $grupo_id);
 $estudiantes = $db->resultSet();

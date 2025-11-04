@@ -44,11 +44,10 @@ if ($materia_id) {
     }
 
     // Obtener actividades
-    $db->query("SELECT a.id, a.nombre, a.descripcion, a.porcentaje, a.trimestre, 
-                   a.fecha_creacion, a.fecha_entrega
+    $db->query("SELECT a.id, a.nombre, a.descripcion, a.porcentaje, a.trimestre,a.fecha_entrega
             FROM actividades a
             WHERE a.grupo_id = :grupo_id AND a.materia_id = :materia_id AND a.trimestre = :trimestre
-            ORDER BY a.fecha_creacion");
+            ORDER BY a.fecha_entrega");
     $db->bind(':grupo_id', $grupo_id);
     $db->bind(':materia_id', $materia_id);
     $db->bind(':trimestre', $trimestre);
@@ -83,6 +82,7 @@ if ($materia_id) {
         <?php include './partials/sidebar.php'; ?>
 
         <div class="flex-1 p-8">
+
             <div class="flex justify-between items-start mb-6">
                 <div>
                     <h2 class="text-3xl font-bold">Actividades - <?= htmlspecialchars($grupo->nombre) ?></h2>
@@ -97,6 +97,21 @@ if ($materia_id) {
                     <i class="fas fa-arrow-left mr-2"></i> Volver al grupo
                 </a>
             </div>
+
+            <!-- Muestra los errores waza -->
+            <?php if (!empty($_SESSION['success'])): ?>
+                <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+                    <i class="fas fa-check-circle mr-2"></i> <?= htmlspecialchars($_SESSION['success']) ?>
+                </div>
+                <?php unset($_SESSION['success']); ?>
+            <?php endif; ?>
+
+            <?php if (!empty($_SESSION['error'])): ?>
+                <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                    <i class="fas fa-exclamation-circle mr-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
+                </div>
+                <?php unset($_SESSION['error']); ?>
+            <?php endif; ?>
 
             <!-- Pestañas -->
             <div class="mb-6 border-b border-gray-200">
@@ -226,7 +241,7 @@ if ($materia_id) {
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                                <textarea name="descripcion" class="w-full p-2 border rounded"></textarea>
+                                <textarea name="descripcion" class="w-full p-2 border rounded" required></textarea>
                             </div>
 
                             <div class="flex justify-end space-x-3">
@@ -286,7 +301,7 @@ if ($materia_id) {
                                                     <?= $actividad->trimestre ?>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-center">
-                                                    <?= date('d/m/Y', strtotime($actividad->fecha_creacion)) ?>
+                                                    <?= date('d/m/Y', strtotime($actividad->fecha_entrega)) ?>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-center">
                                                     <a href="calificaciones.php?id=<?= $grupo_id ?>&materia_id=<?= $materia_id ?>&trimestre=<?= $actividad->trimestre ?>"

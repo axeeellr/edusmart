@@ -68,17 +68,17 @@ if ($materia_id) {
             $total_porcentaje = 0;
 
             foreach ($actividades as $actividad) {
-                $db->query("SELECT id, calificacion FROM notas 
-                           WHERE estudiante_id = :estudiante_id AND actividad_id = :actividad_id");
+                $db->query("SELECT id, calificacion, bloqueada, solicitud_revision FROM notas WHERE estudiante_id = :estudiante_id AND actividad_id = :actividad_id");
                 $db->bind(':estudiante_id', $estudiante->id);
                 $db->bind(':actividad_id', $actividad->id);
                 $nota = $db->single();
 
                 $calificaciones[$estudiante->id][$actividad->id] = [
                     'id' => $nota ? $nota->id : null,
-                    'calificacion' => $nota ? $nota->calificacion : null
+                    'calificacion' => $nota ? $nota->calificacion : null,
+                    'bloqueada' => $nota ? $nota->bloqueada : 0,
+                    'solicitud_revision' => $nota ? $nota->solicitud_revision : null
                 ];
-
                 // Calcular contribución al promedio
                 if ($nota && $nota->calificacion !== null) {
                     $total_puntos += $nota->calificacion * ($actividad->porcentaje / 100);
@@ -108,41 +108,122 @@ if ($materia_id) {
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= ALERTIFY ?>"></script>
+    <link rel="stylesheet" href="<?= ALERTIFY_CSS ?>">
     <script>
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Evita múltiples peticiones por el mismo input al mismo tiempo
+            const bloqueados = new Set();
+
+            document.querySelectorAll('.calificacion-input').forEach(input => {
+                // Escuchar tanto "input" como "change"
+                ['input', 'change'].forEach(evento => {
+                    input.addEventListener(evento, async function () {
+                        if (this.disabled) return; // Si está bloqueada, no hace nada
+                        if (bloqueados.has(this)) return; // Evita doble envío
+
+                        bloqueados.add(this); // Marca el input como ocupado temporalmente
+
+                        try {
+                            console.log("⏳ Enviando calificación...");
+                            const response = await fetch('guardar_calificacion.php', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    nota_id: this.dataset.notaId,
+                                    estudiante_id: this.dataset.estudiante,
+                                    actividad_id: this.dataset.actividad,
+                                    calificacion: this.value,
+                                    accion: 'actualizar'
+                                })
+                            });
+
+                            console.log("📡 Respuesta HTTP recibida:", response.status);
+
+                            const text = await response.text();
+                            console.log("📦 Texto recibido del servidor:", text);
+
+                            let data;
+                            try {
+                                data = JSON.parse(text);
+                            } catch (parseError) {
+                                console.error("❌ Error al parsear JSON:", parseError);
+                                throw new Error("Respuesta no válida del servidor: " + text);
+                            }
+
+                            if (data.success) {
+                                alertify.success(`Calificación actualizada (${this.value})`);
+                            } else {
+                                alertify.error(data.message || 'Error al actualizar la calificación');
+                            }
+
+                        } catch (error) {
+                            console.error("🔥 Error global en fetch:", error);
+                            alertify.error('Error: ' + error.message);
+                        } finally {
+                            setTimeout(() => bloqueados.delete(this), 1000);
+                        }
+
+                    });
+                });
+            });
+        });
+
+
         async function guardarCalificacion(input) {
             const notaId = input.dataset.notaId;
             const estudianteId = input.dataset.estudiante;
             const actividadId = input.dataset.actividad;
             const calificacion = input.value;
 
+            const estudianteNombre = input.dataset.estudianteNombre || `ID: ${estudianteId}`;
+            const actividadNombre = input.dataset.actividadNombre || `Actividad ID: ${actividadId}`;
+
+            const confirmacion = await Swal.fire({
+                title: '¿Guardar y bloquear calificación?',
+                html: `
+            <div style="text-align: left;">
+                <p><b>Estudiante:</b> ${estudianteNombre}</p>
+                <p><b>Actividad:</b> ${actividadNombre}</p>
+                <p><b>Calificación:</b> <span style="color:blue">${calificacion}</span></p>
+                <p style="color:red;"><b>Nota:</b> Una vez guardada, la calificación quedará bloqueada.</p>
+            </div>
+        `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, guardar y bloquear',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33'
+            });
+
+            if (!confirmacion.isConfirmed) return;
+
             try {
                 const response = await fetch('guardar_calificacion.php', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         nota_id: notaId,
                         estudiante_id: estudianteId,
                         actividad_id: actividadId,
-                        calificacion: calificacion
+                        calificacion: calificacion,
+                        accion: 'bloquear'
                     })
                 });
 
                 const data = await response.json();
 
                 if (data.success) {
-                    // Actualizar promedio
-                    await actualizarPromedio(estudianteId);
-                    Swal.fire({
-                        icon: 'success',
-                        title: '¡Guardado!',
-                        text: 'La calificación se ha guardado correctamente',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
+                    if (data.nota_id) {
+                        this.dataset.notaId = data.nota_id;
+                        console.log("🆕 Nuevo nota_id asignado al input:", data.nota_id);
+                    }
+
+                    alertify.success(`Calificación actualizada (${this.value})`);
                 } else {
-                    throw new Error(data.message || 'Error al guardar');
+                    alertify.error(data.message || 'Error al actualizar la calificación');
                 }
             } catch (error) {
                 Swal.fire({
@@ -152,8 +233,6 @@ if ($materia_id) {
                     timer: 2000,
                     showConfirmButton: false
                 });
-                // Recargar para mantener consistencia
-                setTimeout(() => window.location.reload(), 2000);
             }
         }
 
@@ -181,7 +260,7 @@ if ($materia_id) {
             }
         }
 
-          function validarCalificacion(input) {
+        function validarCalificacion(input) {
             let valor = parseFloat(input.value);
 
             // Si el campo está vacío, no mostrar alerta (por si el maestro aún no ha ingresado nada)
@@ -206,6 +285,58 @@ if ($materia_id) {
             input.value = valor.toFixed(2);
             return true;
         }
+
+
+        function solicitarModificacion(nota_id) {
+            Swal.fire({
+                title: 'Solicitar modificación',
+                text: 'Escribe la razón o comentario para la solicitud:',
+                input: 'textarea',
+                inputPlaceholder: 'Ejemplo: Considero que la calificación no refleja el desempeño del estudiante...',
+                inputAttributes: {
+                    'aria-label': 'Razón de la solicitud'
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Enviar solicitud',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                inputValidator: (value) => {
+                    if (!value) {
+                        return 'Por favor escribe una razón para la solicitud.';
+                    }
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const razon = result.value;
+
+                    fetch('solicitar_modificacion.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nota_id, razon })
+                    })
+                        .then(res => res.json())
+                        .then(data => {
+                            Swal.fire({
+                                icon: data.success ? 'success' : 'warning',
+                                title: data.success ? 'Solicitud enviada' : 'Atención',
+                                text: data.message
+                            }).then(() => {
+                                if (data.success) location.reload(); // Opcional: recarga
+                            });
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Ocurrió un error al enviar la solicitud.'
+                            });
+                        });
+                }
+            });
+        }
+
     </script>
 </head>
 
@@ -337,16 +468,31 @@ if ($materia_id) {
                                                     $nota = $calificaciones[$estudiante->id][$actividad->id] ?? null;
                                                     ?>
                                                     <td class="px-6 py-4 whitespace-nowrap text-center">
-                                                        <input type="number" step="0.01" min="0" max="10"
-                                                            class="w-20 p-1 border rounded calificacion-input text-center"
-                                                            value="<?= $nota['calificacion'] ?? '' ?>"
-                                                            data-nota-id="<?= $nota['id'] ?? '' ?>"
-                                                            data-estudiante="<?= $estudiante->id ?>"
-                                                            data-actividad="<?= $actividad->id ?>"
-                                                            data-porcentaje="<?= $actividad->porcentaje ?>"
-                                                            onchange="if (validarCalificacion(this)) guardarCalificacion(this)"
-                                                            placeholder="0.00">
-
+                                                        <div class="flex items-center justify-center space-x-2">
+                                                            <input type="number" step="0.1" min="0" max="10"
+                                                                class="w-20 p-1 border rounded calificacion-input text-center"
+                                                                value="<?= $nota['calificacion'] ?? '' ?>"
+                                                                data-nota-id="<?= $nota['id'] ?? '' ?>"
+                                                                data-estudiante="<?= $estudiante->id ?>"
+                                                                data-estudiante-nombre="<?= htmlspecialchars($estudiante->nombre_completo) ?>"
+                                                                data-actividad="<?= $actividad->id ?>"
+                                                                data-actividad-nombre="<?= htmlspecialchars($actividad->nombre) ?>"
+                                                                data-porcentaje="<?= $actividad->porcentaje ?>" placeholder="0.0"
+                                                                <?= ($nota['bloqueada'] == 1) ? 'disabled' : '' ?>>
+                                                            <!-- Botón de guardar -->
+                                                            <?php if (($nota['bloqueada'] ?? 0) == 1): ?><button
+                                                                    class="bg-gray-500 text-white p-2 rounded"
+                                                                    onclick="solicitarModificacion(<?= $nota['id'] ?>)"><i
+                                                                        class="fas fa-exclamation-circle"></i> Solicitar
+                                                                    Modificacion</button><?php else: ?>
+                                                                <button type="button"
+                                                                    class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded guardar-btn"
+                                                                    title="Guardar calificación"
+                                                                    onclick="guardarCalificacion(this.previousElementSibling)">
+                                                                    <i class="fas fa-save"></i>
+                                                                </button>
+                                                            <?php endif; ?>
+                                                        </div>
                                                     </td>
                                                 <?php endforeach; ?>
                                                 <td class="px-6 py-4 whitespace-nowrap text-center font-semibold promedio">

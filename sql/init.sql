@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Oct 31, 2025 at 12:05 AM
+-- Generation Time: Nov 04, 2025 at 04:37 AM
 -- Server version: 8.4.3
 -- PHP Version: 8.3.26
 
@@ -287,8 +287,8 @@ DELIMITER ;
 --
 
 DROP TABLE IF EXISTS `actividades`;
-CREATE TABLE `actividades` (
-  `id` int NOT NULL,
+CREATE TABLE IF NOT EXISTS `actividades` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `nombre` varchar(100) NOT NULL,
   `descripcion` text,
   `porcentaje` decimal(5,2) NOT NULL,
@@ -296,8 +296,11 @@ CREATE TABLE `actividades` (
   `fecha_entrega` date DEFAULT NULL,
   `materia_id` int NOT NULL,
   `grupo_id` int NOT NULL,
-  `fecha_creacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `fecha_creacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `materia_id` (`materia_id`),
+  KEY `grupo_id` (`grupo_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Triggers `actividades`
@@ -376,8 +379,8 @@ DELIMITER ;
 --
 
 DROP TABLE IF EXISTS `bitacora`;
-CREATE TABLE `bitacora` (
-  `id_reg` int NOT NULL,
+CREATE TABLE IF NOT EXISTS `bitacora` (
+  `id_reg` int NOT NULL AUTO_INCREMENT,
   `usuario_sistema` varchar(50) NOT NULL,
   `fecha_hora_sistema` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `nombre_tabla` varchar(50) NOT NULL,
@@ -386,8 +389,9 @@ CREATE TABLE `bitacora` (
   `valores_anteriores` json DEFAULT NULL,
   `valores_nuevos` json DEFAULT NULL,
   `ip_conexion` varchar(45) DEFAULT NULL,
-  `modulo` varchar(50) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `modulo` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id_reg`)
+) ENGINE=InnoDB AUTO_INCREMENT=94 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -396,13 +400,15 @@ CREATE TABLE `bitacora` (
 --
 
 DROP TABLE IF EXISTS `estudiantes`;
-CREATE TABLE `estudiantes` (
-  `id` int NOT NULL,
+CREATE TABLE IF NOT EXISTS `estudiantes` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `nombre_completo` varchar(100) NOT NULL,
   `fecha_nacimiento` date NOT NULL,
   `grupo_id` int NOT NULL,
-  `estado` enum('activo','inactivo','retirado','egresado') DEFAULT 'activo'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `estado` enum('activo','inactivo','retirado','egresado') DEFAULT 'activo',
+  PRIMARY KEY (`id`),
+  KEY `grupo_id` (`grupo_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=20150021 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Triggers `estudiantes`
@@ -475,13 +481,15 @@ DELIMITER ;
 --
 
 DROP TABLE IF EXISTS `grupos`;
-CREATE TABLE `grupos` (
-  `id` int NOT NULL,
+CREATE TABLE IF NOT EXISTS `grupos` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `nombre` varchar(50) NOT NULL,
   `grado` varchar(20) NOT NULL,
   `ciclo_escolar` varchar(20) NOT NULL,
-  `maestro_id` int DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `maestro_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `maestro_id` (`maestro_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Triggers `grupos`
@@ -558,11 +566,14 @@ DELIMITER ;
 --
 
 DROP TABLE IF EXISTS `maestros_materias`;
-CREATE TABLE `maestros_materias` (
-  `id` int NOT NULL,
+CREATE TABLE IF NOT EXISTS `maestros_materias` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `maestro_id` int NOT NULL,
-  `materia_id` int NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `materia_id` int NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `maestro_id` (`maestro_id`,`materia_id`),
+  KEY `materia_id` (`materia_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Triggers `maestros_materias`
@@ -611,12 +622,13 @@ DELIMITER ;
 --
 
 DROP TABLE IF EXISTS `materias`;
-CREATE TABLE `materias` (
-  `id` int NOT NULL,
+CREATE TABLE IF NOT EXISTS `materias` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `nombre` varchar(100) NOT NULL,
   `descripcion` text,
-  `activa` tinyint(1) DEFAULT '1'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `activa` tinyint(1) DEFAULT '1',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Triggers `materias`
@@ -690,11 +702,14 @@ DELIMITER ;
 --
 
 DROP TABLE IF EXISTS `materias_niveles`;
-CREATE TABLE `materias_niveles` (
-  `id` int NOT NULL,
+CREATE TABLE IF NOT EXISTS `materias_niveles` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `materia_id` int NOT NULL,
-  `nivel_id` int NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `nivel_id` int NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `materia_id` (`materia_id`,`nivel_id`),
+  KEY `nivel_id` (`nivel_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -703,19 +718,23 @@ CREATE TABLE `materias_niveles` (
 --
 
 DROP TABLE IF EXISTS `niveles`;
-CREATE TABLE `niveles` (
-  `id` int NOT NULL,
+CREATE TABLE IF NOT EXISTS `niveles` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `nombre` varchar(100) NOT NULL,
   `descripcion` text,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `niveles`
+--
 
-INSERT INTO niveles (nombre, descripcion)
-VALUES 
-('Primer ciclo', 'Incluye los grados de 1º a 3º de educación básica'),
-('Segundo ciclo', 'Incluye los grados de 4º a 6º de educación básica'),
-('Tercer ciclo', 'Incluye los grados de 7º a 9º de educación básica');
+INSERT INTO `niveles` (`id`, `nombre`, `descripcion`, `created_at`) VALUES
+(1, 'Primer ciclo', 'Incluye los grados de 1º a 3º de educación básica', '2025-11-02 23:43:26'),
+(2, 'Segundo ciclo', 'Incluye los grados de 4º a 6º de educación básica', '2025-11-02 23:43:26'),
+(3, 'Tercer ciclo', 'Incluye los grados de 7º a 9º de educación básica', '2025-11-02 23:43:26');
+
 -- --------------------------------------------------------
 
 --
@@ -723,13 +742,19 @@ VALUES
 --
 
 DROP TABLE IF EXISTS `notas`;
-CREATE TABLE `notas` (
-  `id` int NOT NULL,
+CREATE TABLE IF NOT EXISTS `notas` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `estudiante_id` int NOT NULL,
   `actividad_id` int NOT NULL,
   `calificacion` decimal(5,2) NOT NULL,
-  `fecha_registro` timestamp NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `fecha_registro` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `bloqueada` tinyint(1) NOT NULL DEFAULT '0',
+  `solicitud_revision` enum('pendiente','aprobada','rechazada') DEFAULT NULL,
+  `fecha_revision` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `estudiante_id` (`estudiante_id`,`actividad_id`),
+  KEY `actividad_id` (`actividad_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=75 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Triggers `notas`
@@ -799,14 +824,41 @@ DELIMITER ;
 --
 
 DROP TABLE IF EXISTS `roles`;
-CREATE TABLE `roles` (
-  `id` int NOT NULL,
-  `nombre` varchar(50) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS `roles` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(50) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `roles`
+--
 
-INSERT INTO roles (nombre) VALUES 
-('admin'), ('rector'), ('maestro');
+INSERT INTO `roles` (`id`, `nombre`) VALUES
+(1, 'admin'),
+(2, 'rector'),
+(3, 'maestro');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `solicitudes_modificacion`
+--
+
+DROP TABLE IF EXISTS `solicitudes_modificacion`;
+CREATE TABLE IF NOT EXISTS `solicitudes_modificacion` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nota_id` int NOT NULL,
+  `maestro_id` int NOT NULL,
+  `razon` text NOT NULL,
+  `estado` enum('pendiente','aceptada','rechazada') DEFAULT 'pendiente',
+  `fecha_solicitud` datetime DEFAULT CURRENT_TIMESTAMP,
+  `fecha_respuesta` datetime DEFAULT NULL,
+  `comentario_respuesta` text,
+  PRIMARY KEY (`id`),
+  KEY `nota_id` (`nota_id`),
+  KEY `maestro_id` (`maestro_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -815,16 +867,28 @@ INSERT INTO roles (nombre) VALUES
 --
 
 DROP TABLE IF EXISTS `usuarios`;
-CREATE TABLE `usuarios` (
-  `id` int NOT NULL,
+CREATE TABLE IF NOT EXISTS `usuarios` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `nombre_completo` varchar(100) NOT NULL,
   `fecha_nacimiento` date NOT NULL,
   `username` varchar(50) NOT NULL,
   `password` varchar(255) NOT NULL,
   `rol_id` int NOT NULL,
   `fecha_creacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `activo` tinyint(1) NOT NULL DEFAULT '1'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `activo` tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  KEY `rol_id` (`rol_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `usuarios`
+--
+
+INSERT INTO `usuarios` (`id`, `nombre_completo`, `fecha_nacimiento`, `username`, `password`, `rol_id`, `fecha_creacion`, `activo`) VALUES
+(1, 'admin', '2005-09-10', 'admin', '$2y$10$8YbHTf7z8g2v3cmNtyLDsuOUC9iczEPAR46c2/z.aqw1gD.bDgOZq', 1, '2025-11-03 00:57:48', 1),
+(2, 'Jhon Doe', '2000-10-10', 'jd25', '$2y$10$f6GnorcR/u0IbdsPaeFHFOhZNbBAHJmoUQHIBlZgNChUGzyCLgOeG', 2, '2025-11-03 01:00:56', 1),
+(3, 'Jane Doe', '2000-10-10', 'jd251', '$2y$10$nFY2X/Jdvm24ArkfjjpmiuwuVkoaqDdC1E8P8qMBbvqcd3hRzkPSe', 3, '2025-11-03 01:01:33', 1);
 
 --
 -- Triggers `usuarios`
@@ -848,158 +912,6 @@ CREATE TRIGGER `tr_bitacora_delete_usuarios` AFTER DELETE ON `usuarios` FOR EACH
 END
 $$
 DELIMITER ;
-
---
--- Indexes for dumped tables
---
-
---
--- Indexes for table `actividades`
---
-ALTER TABLE `actividades`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `materia_id` (`materia_id`),
-  ADD KEY `grupo_id` (`grupo_id`);
-
---
--- Indexes for table `bitacora`
---
-ALTER TABLE `bitacora`
-  ADD PRIMARY KEY (`id_reg`);
-
---
--- Indexes for table `estudiantes`
---
-ALTER TABLE `estudiantes`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `grupo_id` (`grupo_id`);
-
---
--- Indexes for table `grupos`
---
-ALTER TABLE `grupos`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `maestro_id` (`maestro_id`);
-
---
--- Indexes for table `maestros_materias`
---
-ALTER TABLE `maestros_materias`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `maestro_id` (`maestro_id`,`materia_id`),
-  ADD KEY `materia_id` (`materia_id`);
-
---
--- Indexes for table `materias`
---
-ALTER TABLE `materias`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `materias_niveles`
---
-ALTER TABLE `materias_niveles`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `materia_id` (`materia_id`,`nivel_id`),
-  ADD KEY `nivel_id` (`nivel_id`);
-
---
--- Indexes for table `niveles`
---
-ALTER TABLE `niveles`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `notas`
---
-ALTER TABLE `notas`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `estudiante_id` (`estudiante_id`,`actividad_id`),
-  ADD KEY `actividad_id` (`actividad_id`);
-
---
--- Indexes for table `roles`
---
-ALTER TABLE `roles`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `usuarios`
---
-ALTER TABLE `usuarios`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `username` (`username`),
-  ADD KEY `rol_id` (`rol_id`);
-
---
--- AUTO_INCREMENT for dumped tables
---
-
---
--- AUTO_INCREMENT for table `actividades`
---
-ALTER TABLE `actividades`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `bitacora`
---
-ALTER TABLE `bitacora`
-  MODIFY `id_reg` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `estudiantes`
---
-ALTER TABLE `estudiantes`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `grupos`
---
-ALTER TABLE `grupos`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `maestros_materias`
---
-ALTER TABLE `maestros_materias`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `materias`
---
-ALTER TABLE `materias`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `materias_niveles`
---
-ALTER TABLE `materias_niveles`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `niveles`
---
-ALTER TABLE `niveles`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `notas`
---
-ALTER TABLE `notas`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `roles`
---
-ALTER TABLE `roles`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `usuarios`
---
-ALTER TABLE `usuarios`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables
@@ -1044,6 +956,12 @@ ALTER TABLE `materias_niveles`
 ALTER TABLE `notas`
   ADD CONSTRAINT `notas_ibfk_1` FOREIGN KEY (`estudiante_id`) REFERENCES `estudiantes` (`id`),
   ADD CONSTRAINT `notas_ibfk_2` FOREIGN KEY (`actividad_id`) REFERENCES `actividades` (`id`);
+
+--
+-- Constraints for table `solicitudes_modificacion`
+--
+ALTER TABLE `solicitudes_modificacion`
+  ADD CONSTRAINT `solicitudes_modificacion_ibfk_1` FOREIGN KEY (`nota_id`) REFERENCES `notas` (`id`);
 
 --
 -- Constraints for table `usuarios`
