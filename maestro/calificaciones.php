@@ -166,6 +166,10 @@ if ($materia_id) {
 
                             if (data.success) {
                                 alertify.success(`Calificación actualizada (${this.value})`);
+
+                                if (data.nota_id) {
+                                    this.dataset.notaId = data.nota_id;
+                                }
                             } else {
                                 alertify.error(data.message || 'Error al actualizar la calificación');
                             }
@@ -184,10 +188,26 @@ if ($materia_id) {
             const notaId = input.dataset.notaId;
             const estudianteId = input.dataset.estudiante;
             const actividadId = input.dataset.actividad;
-            const calificacion = input.value;
+            const calificacion = parseFloat(input.value);
 
             const estudianteNombre = input.dataset.estudianteNombre || `ID: ${estudianteId}`;
             const actividadNombre = input.dataset.actividadNombre || `Actividad ID: ${actividadId}`;
+
+            // 🔍 Validaciones previas
+            if (!actividadId || !estudianteId) {
+                alertify.error('Faltan datos del estudiante o la actividad.');
+                return;
+            }
+
+            if (isNaN(calificacion) || calificacion < 0 || calificacion > 10) {
+                alertify.error('La calificación debe estar entre 0 y 10.');
+                return;
+            }
+
+            if (!notaId) {
+                alertify.error('No se puede bloquear una calificación que no existe.');
+                return;
+            }
 
             const confirmacion = await Swal.fire({
                 title: '¿Guardar y bloquear calificación?',
@@ -225,7 +245,7 @@ if ($materia_id) {
                 const data = await response.json();
 
                 if (data.success) {
-                    alertify.success(`Calificación Guardada (${input.value})`);
+                    alertify.success(`Calificación guardada (${calificacion})`);
                 } else {
                     alertify.error(data.message || 'Error al actualizar la calificación');
                 }
@@ -239,6 +259,7 @@ if ($materia_id) {
                 });
             }
         }
+
 
         async function actualizarPromedio(estudianteId) {
             const fila = document.querySelector(`tr[data-estudiante="${estudianteId}"]`);
@@ -483,14 +504,15 @@ if ($materia_id) {
                                             <tr data-estudiante="<?= $estudiante->id ?>">
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-gray-900 font-medium">
-                                                        <?= htmlspecialchars($estudiante->nombre_completo) ?></div>
+                                                        <?= htmlspecialchars($estudiante->nombre_completo) ?>
+                                                    </div>
                                                     <div class="text-sm text-gray-500">NIE: <?= $estudiante->id ?></div>
                                                 </td>
 
                                                 <?php foreach ($actividades as $actividad):
                                                     $notaData = $calificaciones[$estudiante->id][$actividad->id] ?? null;
                                                     $bloq = (int) ($notaData['bloqueada'] ?? 0);
-                                                    $solRev = (int) ($notaData['solicitud_revision'] ?? 0);
+                                                    $solRev = ($notaData['solicitud_revision'] ?? null);
                                                     $ultEst = $notaData['estado_solicitud'] ?? null;
                                                     $disabled = $bloq ? 'disabled' : '';
                                                     ?>
@@ -514,15 +536,15 @@ if ($materia_id) {
                                                                         <i class="fas fa-save"></i>
                                                                     </button>
                                                                 <?php else: ?>
-                                                                    <?php if ($ultEst === 'pendiente' || $solRev == 1): ?>
+                                                                    <?php if ($ultEst === 'pendiente' || $solRev === 'pendiente'): ?>
                                                                         <span
                                                                             class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-green-500"
                                                                             title="Solicitud enviada"></span>
-                                                                    <?php elseif ($ultEst === 'rechazada'): ?>
+                                                                    <?php elseif ($ultEst === 'rechazada' || $solRev === 'rechazada'): ?>
                                                                         <span
                                                                             class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-red-500"
                                                                             title="Solicitud rechazada"></span>
-                                                                    <?php elseif ($ultEst === 'aprobada'): ?>
+                                                                    <?php elseif ($ultEst === 'aprobada' || $solRev === 'aprobada'): ?>
                                                                         <button type="button" class="text-gray-500" title="Bloqueada" disabled>
                                                                             <i class="fas fa-lock"></i>
                                                                         </button>

@@ -25,7 +25,12 @@ if (
 }
 
 // Normalizar valores
-$accion = $data['accion'];
+$estudiante_id = isset($data['estudiante_id']) ? (int) $data['estudiante_id'] : 0;
+$actividad_id = isset($data['actividad_id']) ? (int) $data['actividad_id'] : 0;
+$calificacion = isset($data['calificacion']) ? (float) $data['calificacion'] : null;
+$nota_id = isset($data['nota_id']) && is_numeric($data['nota_id']) ? (int) $data['nota_id'] : 0;
+
+$accion = isset($data['accion']) ? trim($data['accion']) : '';
 
 if ($calificacion === null || $calificacion < 0 || $calificacion > 10) {
     echo json_encode(['success' => false, 'message' => 'Calificación inválida']);
@@ -34,6 +39,11 @@ if ($calificacion === null || $calificacion < 0 || $calificacion > 10) {
 
 if ($actividad_id <= 0 || $estudiante_id <= 0) {
     echo json_encode(['success' => false, 'message' => 'Parámetros incompletos']);
+    exit;
+}
+
+if ($accion === 'bloquear' && (empty($data['nota_id']) || !is_numeric($data['nota_id']))) {
+    echo json_encode(['success' => false, 'message' => 'No se puede bloquear una nota que no existe.']);
     exit;
 }
 
@@ -121,28 +131,24 @@ try {
             exit;
 
         case 'bloquear':
-            // Guardar o actualizar y luego bloquear
-            if (!empty($data['nota_id'])) {
-                $db->query("
-                    UPDATE notas 
-                    SET calificacion = :calificacion, bloqueada = 1
-                    WHERE id = :id
-                ");
-                $db->bind(':calificacion', $calificacion);
-                $db->bind(':id', $data['nota_id']);
-            } else {
-                $db->query("
-                    INSERT INTO notas (estudiante_id, actividad_id, calificacion, bloqueada)
-                    VALUES (:estudiante_id, :actividad_id, :calificacion, 1)
-                ");
-                $db->bind(':estudiante_id', $data['estudiante_id']);
-                $db->bind(':actividad_id', $data['actividad_id']);
-                $db->bind(':calificacion', $calificacion);
+            // Solo permitir bloqueo si la nota existe
+            if (empty($data['nota_id']) || !is_numeric($data['nota_id'])) {
+                echo json_encode(['success' => false, 'message' => 'No se puede bloquear una nota que no existe.']);
+                exit;
             }
-            break;
 
-        default:
-            echo json_encode(['success' => false, 'message' => 'Acción no válida']);
+            $nota_id = (int) $data['nota_id'];
+
+            $db->query("
+        UPDATE notas 
+        SET calificacion = :calificacion, bloqueada = 1
+        WHERE id = :id
+    ");
+            $db->bind(':calificacion', $calificacion);
+            $db->bind(':id', $nota_id);
+            $db->execute();
+
+            echo json_encode(['success' => true]);
             exit;
     }
 

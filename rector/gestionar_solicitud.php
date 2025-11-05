@@ -10,7 +10,7 @@ try {
     }
 
     // Lee POST; si alguna instalación usa JSON, cae al body también
-    $id     = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+    $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
     $accion = isset($_POST['accion']) ? trim($_POST['accion']) : '';
     if ($id <= 0 || $accion === '') {
         echo json_encode(['ok' => false, 'message' => 'Parámetros inválidos']);
@@ -41,15 +41,15 @@ try {
 
         // Al resolverse, quita el flag y DESBLOQUEA la nota
         $db->query("UPDATE notas 
-                    SET solicitud_revision = 0, bloqueada = 0
-                    WHERE id = :nid");
-        $db->bind(':nid', (int)$sol->nota_id, PDO::PARAM_INT);
+            SET solicitud_revision = NULL, bloqueada = 0
+            WHERE id = :nid");
+        $db->bind(':nid', (int) $sol->nota_id, PDO::PARAM_INT);
         $db->execute();
 
         $db->commit();
 
         echo json_encode([
-            'ok'      => true,
+            'ok' => true,
             'message' => ($accion === 'aprobada' ? 'Solicitud aprobada.' : 'Solicitud rechazada.')
         ]);
         exit;
