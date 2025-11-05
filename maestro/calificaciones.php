@@ -8,92 +8,116 @@ $grupo_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 $materia_id = isset($_GET['materia_id']) ? intval($_GET['materia_id']) : 0;
 $trimestre = isset($_GET['trimestre']) ? intval($_GET['trimestre']) : 1;
 
-// Verificar permisos del maestro sobre el grupo
+// Permisos sobre el grupo 
 $db->query("SELECT g.* FROM grupos g WHERE g.id = :grupo_id AND g.maestro_id = :maestro_id");
 $db->bind(':grupo_id', $grupo_id);
 $db->bind(':maestro_id', $maestro_id);
 $grupo = $db->single();
-
 if (!$grupo) {
     $_SESSION['error'] = "Grupo no encontrado o no tienes permisos";
     header("Location: grupos.php");
     exit;
 }
 
-// Obtener estudiantes del grupo
+// Obtener estudiantes del grupo 
 $db->query("SELECT * FROM estudiantes WHERE grupo_id = :grupo_id ORDER BY nombre_completo");
 $db->bind(':grupo_id', $grupo_id);
 $estudiantes = $db->resultSet();
 
-// Obtener materias del maestro
-$db->query("SELECT m.id, m.nombre 
-           FROM materias m
-           JOIN maestros_materias mm ON mm.materia_id = m.id
-           WHERE mm.maestro_id = :maestro_id
-           ORDER BY m.nombre");
+//  Materias del maestro, para el selector 
+$db->query("
+SELECT DISTINCT m.id, m.nombre
+FROM materias m
+INNER JOIN maestros_materias mm
+        ON mm.materia_id = m.id
+        AND mm.maestro_id = :maestro_id
+ORDER BY m.nombre
+");
 $db->bind(':maestro_id', $maestro_id);
 $materias = $db->resultSet();
 
-// Si hay materia seleccionada, obtener actividades y calificaciones
+/* ===== Si hay materia seleccionada, cargar actividades y notas ===== */
+$actividades = [];
+$calificaciones = [];
+$promedios = [];
+$materia_actual = null;
+
 if ($materia_id) {
-    // Verificar que el maestro imparte esta materia
+    // Valida que el maestro imparte esa materia
     $db->query("SELECT id FROM maestros_materias WHERE materia_id = :materia_id AND maestro_id = :maestro_id");
     $db->bind(':materia_id', $materia_id);
     $db->bind(':maestro_id', $maestro_id);
     $materia_valida = $db->single();
-
     if (!$materia_valida) {
         $_SESSION['error'] = "No tienes permiso para acceder a esta materia";
         header("Location: calificaciones.php?id=$grupo_id");
         exit;
     }
 
-    // Obtener actividades del trimestre con fecha de entrega
-    $db->query("SELECT a.id, a.nombre, a.porcentaje, a.fecha_entrega 
-               FROM actividades a
-               WHERE a.grupo_id = :grupo_id AND a.materia_id = :materia_id AND a.trimestre = :trimestre
-               ORDER BY a.fecha_entrega");
+    // Obtener actividades del trimestre
+    $db->query("SELECT a.id, a.nombre, a.porcentaje, a.fecha_entrega
+            FROM actividades a
+            WHERE a.grupo_id = :grupo_id AND a.materia_id = :materia_id AND a.trimestre = :trimestre
+            ORDER BY a.fecha_entrega");
     $db->bind(':grupo_id', $grupo_id);
     $db->bind(':materia_id', $materia_id);
     $db->bind(':trimestre', $trimestre);
     $actividades = $db->resultSet();
 
-    // Obtener calificaciones
-    $calificaciones = [];
-    $promedios = [];
-
+    // Notas + estado solicitud normalizado
     if (!empty($estudiantes) && !empty($actividades)) {
         foreach ($estudiantes as $estudiante) {
             $total_puntos = 0;
             $total_porcentaje = 0;
 
             foreach ($actividades as $actividad) {
-                $db->query("SELECT id, calificacion, bloqueada, solicitud_revision FROM notas WHERE estudiante_id = :estudiante_id AND actividad_id = :actividad_id");
-                $db->bind(':estudiante_id', $estudiante->id);
-                $db->bind(':actividad_id', $actividad->id);
+                $db->query("
+            SELECT n.id, n.calificacion, n.bloqueada, n.solicitud_revision,
+                (SELECT s.estado
+                FROM solicitudes_modificacion s
+                WHERE s.nota_id = n.id AND s.maestro_id = :maestro_id
+                ORDER BY s.id DESC LIMIT 1) AS estado_solicitud
+            FROM notas n
+            WHERE n.estudiante_id = :est AND n.actividad_id = :act
+            LIMIT 1
+            ");
+                $db->bind(':maestro_id', $maestro_id);
+                $db->bind(':est', $estudiante->id);
+                $db->bind(':act', $actividad->id);
                 $nota = $db->single();
+
+                $ult = $nota ? ($nota->estado_solicitud ?? null) : null;
+                $ult = $ult ? mb_strtolower(trim($ult), 'UTF-8') : null;
+                if (in_array($ult, ['aprobada', 'aprobado', 'aceptada', 'aceptado', 'aprobado(a)'], true))
+                    $ult = 'aprobada';
+                elseif (in_array($ult, ['rechazada', 'rechazado'], true))
+                    $ult = 'rechazada';
+                elseif ($ult === 'pendiente')
+                    $ult = 'pendiente';
+                else
+                    $ult = null;
 
                 $calificaciones[$estudiante->id][$actividad->id] = [
                     'id' => $nota ? $nota->id : null,
                     'calificacion' => $nota ? $nota->calificacion : null,
-                    'bloqueada' => $nota ? $nota->bloqueada : 0,
-                    'solicitud_revision' => $nota ? $nota->solicitud_revision : null
+                    'bloqueada' => $nota ? (int) $nota->bloqueada : 0,
+                    'solicitud_revision' => $nota ? (int) $nota->solicitud_revision : 0,
+                    'estado_solicitud' => $ult,
                 ];
-                // Calcular contribución al promedio
+
                 if ($nota && $nota->calificacion !== null) {
                     $total_puntos += $nota->calificacion * ($actividad->porcentaje / 100);
                     $total_porcentaje += $actividad->porcentaje;
                 }
             }
 
-            // Calcular promedio del trimestre
             $promedios[$estudiante->id] = $total_porcentaje > 0 ? round($total_puntos / ($total_porcentaje / 100), 2) : null;
         }
     }
 
-    // Obtener información de la materia
-    $db->query("SELECT nombre FROM materias WHERE id = :materia_id");
-    $db->bind(':materia_id', $materia_id);
+    // obtener solicitud de la materia
+    $db->query("SELECT nombre FROM materias WHERE id = :id");
+    $db->bind(':id', $materia_id);
     $materia_actual = $db->single();
 }
 ?>
@@ -113,20 +137,18 @@ if ($materia_id) {
     <script>
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Evita múltiples peticiones por el mismo input al mismo tiempo
             const bloqueados = new Set();
 
             document.querySelectorAll('.calificacion-input').forEach(input => {
-                // Escuchar tanto "input" como "change"
                 ['input', 'change'].forEach(evento => {
                     input.addEventListener(evento, async function () {
-                        if (this.disabled) return; // Si está bloqueada, no hace nada
-                        if (bloqueados.has(this)) return; // Evita doble envío
+                        if (!validarCalificacion(this)) return;
+                        if (this.disabled) return;
+                        if (bloqueados.has(this)) return;
 
-                        bloqueados.add(this); // Marca el input como ocupado temporalmente
+                        bloqueados.add(this);
 
                         try {
-                            console.log("⏳ Enviando calificación...");
                             const response = await fetch('guardar_calificacion.php', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -139,18 +161,8 @@ if ($materia_id) {
                                 })
                             });
 
-                            console.log("📡 Respuesta HTTP recibida:", response.status);
-
                             const text = await response.text();
-                            console.log("📦 Texto recibido del servidor:", text);
-
-                            let data;
-                            try {
-                                data = JSON.parse(text);
-                            } catch (parseError) {
-                                console.error("❌ Error al parsear JSON:", parseError);
-                                throw new Error("Respuesta no válida del servidor: " + text);
-                            }
+                            const data = JSON.parse(text);
 
                             if (data.success) {
                                 alertify.success(`Calificación actualizada (${this.value})`);
@@ -159,17 +171,14 @@ if ($materia_id) {
                             }
 
                         } catch (error) {
-                            console.error("🔥 Error global en fetch:", error);
                             alertify.error('Error: ' + error.message);
                         } finally {
                             setTimeout(() => bloqueados.delete(this), 1000);
                         }
-
                     });
                 });
             });
         });
-
 
         async function guardarCalificacion(input) {
             const notaId = input.dataset.notaId;
@@ -216,12 +225,7 @@ if ($materia_id) {
                 const data = await response.json();
 
                 if (data.success) {
-                    if (data.nota_id) {
-                        this.dataset.notaId = data.nota_id;
-                        console.log("🆕 Nuevo nota_id asignado al input:", data.nota_id);
-                    }
-
-                    alertify.success(`Calificación actualizada (${this.value})`);
+                    alertify.success(`Calificación Guardada (${input.value})`);
                 } else {
                     alertify.error(data.message || 'Error al actualizar la calificación');
                 }
@@ -263,7 +267,7 @@ if ($materia_id) {
         function validarCalificacion(input) {
             let valor = parseFloat(input.value);
 
-            // Si el campo está vacío, no mostrar alerta (por si el maestro aún no ha ingresado nada)
+            // Si el campo está vacío, no mostrar alerta
             if (input.value.trim() === "") return true;
 
             // Validar que sea número entre 0 y 10
@@ -285,7 +289,6 @@ if ($materia_id) {
             input.value = valor.toFixed(2);
             return true;
         }
-
 
         function solicitarModificacion(nota_id) {
             Swal.fire({
@@ -345,7 +348,7 @@ if ($materia_id) {
         <?php include './partials/sidebar.php'; ?>
 
         <div class="flex-1 p-8">
-            <!-- Encabezado y pestañas (mantener igual que antes) -->
+            <!-- Encabezado y pestañas -->
             <div class="flex justify-between items-start mb-6">
                 <div>
                     <h2 class="text-3xl font-bold">Calificaciones - <?= htmlspecialchars($grupo->nombre) ?></h2>
@@ -416,6 +419,25 @@ if ($materia_id) {
                 </form>
             </div>
 
+            <!-- Leyenda -->
+            <div class="bg-white rounded-lg shadow p-3 mb-4">
+                <div class="legend">
+                    <span class="mx-4 px-2 rounded-sm bg-gray-100 text-gray-700"><i class="fas fa-lock"></i>
+                        Bloqueada</span>
+                    <span class="mx-4 px-2 rounded-sm bg-emerald-100 text-emerald-700"><span class="dot"
+                            style="background:#10b981"></span> Solicitud enviada</span>
+                    <span class="mx-4 px-2 rounded-sm bg-red-100 text-red-700"><span class="dot"
+                            style="background:#ef4444"></span>
+                        Solicitud rechazada</span>
+                    <span class="mx-4 px-2 rounded-sm bg-blue-100 text-blue-700"><i class="fas fa-save"></i> Guardar y
+                        bloquear</span>
+                    <span class="mx-4 px-2 rounded-sm bg-gray-100 text-gray-700"><i
+                            class="fas fa-exclamation-circle"></i> Pedir
+                        modificación</span>
+                </div>
+            </div>
+
+            <!-- Contenido principal -->
             <?php if ($materia_id): ?>
                 <div class="mb-6">
                     <h3 class="text-xl font-semibold mb-2"><?= htmlspecialchars($materia_actual->nombre) ?> - Trimestre
@@ -441,7 +463,7 @@ if ($materia_id) {
                                                 Estudiante</th>
                                             <?php foreach ($actividades as $actividad): ?>
                                                 <th
-                                                    class="px-6 py-3 text-center font-medium text-gray-500 uppercase tracking-wider">
+                                                    class="px-4 py-3 text-center font-medium text-gray-500 uppercase tracking-wider">
                                                     <div class="flex flex-col items-center">
                                                         <span><?= htmlspecialchars($actividad->nombre) ?></span>
                                                         <span class="text-xs text-gray-500"><?= $actividad->porcentaje ?>%</span>
@@ -455,47 +477,69 @@ if ($materia_id) {
                                                 Promedio</th>
                                         </tr>
                                     </thead>
+
                                     <tbody class="bg-white divide-y divide-gray-200">
                                         <?php foreach ($estudiantes as $estudiante): ?>
                                             <tr data-estudiante="<?= $estudiante->id ?>">
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <?= htmlspecialchars($estudiante->nombre_completo) ?>
-                                                    <?php if ($estudiante->id): ?>
-                                                        <div class="text-sm text-gray-500">NIE: <?= $estudiante->id ?></div>
-                                                    <?php endif; ?>
+                                                    <div class="text-gray-900 font-medium">
+                                                        <?= htmlspecialchars($estudiante->nombre_completo) ?></div>
+                                                    <div class="text-sm text-gray-500">NIE: <?= $estudiante->id ?></div>
                                                 </td>
+
                                                 <?php foreach ($actividades as $actividad):
-                                                    $nota = $calificaciones[$estudiante->id][$actividad->id] ?? null;
+                                                    $notaData = $calificaciones[$estudiante->id][$actividad->id] ?? null;
+                                                    $bloq = (int) ($notaData['bloqueada'] ?? 0);
+                                                    $solRev = (int) ($notaData['solicitud_revision'] ?? 0);
+                                                    $ultEst = $notaData['estado_solicitud'] ?? null;
+                                                    $disabled = $bloq ? 'disabled' : '';
                                                     ?>
-                                                    <td class="px-6 py-4 whitespace-nowrap text-center">
-                                                        <div class="flex items-center justify-center space-x-2">
-                                                            <input type="number" step="0.1" min="0" max="10"
-                                                                class="w-20 p-1 border rounded calificacion-input text-center"
-                                                                value="<?= $nota['calificacion'] ?? '' ?>"
-                                                                data-nota-id="<?= $nota['id'] ?? '' ?>"
+                                                    <td class="px-3 py-3 whitespace-nowrap text-center">
+                                                        <div class="flex items-center justify-center gap-2">
+                                                            <input type="number" step="0.01" min="0" max="10"
+                                                                class="w-20 text-center border border-gray-300 rounded-md p-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition calificacion-input"
+                                                                value="<?= $notaData['calificacion'] ?? '' ?>"
+                                                                data-nota-id="<?= $notaData['id'] ?? '' ?>"
                                                                 data-estudiante="<?= $estudiante->id ?>"
                                                                 data-estudiante-nombre="<?= htmlspecialchars($estudiante->nombre_completo) ?>"
                                                                 data-actividad="<?= $actividad->id ?>"
                                                                 data-actividad-nombre="<?= htmlspecialchars($actividad->nombre) ?>"
-                                                                data-porcentaje="<?= $actividad->porcentaje ?>" placeholder="0.0"
-                                                                <?= ($nota['bloqueada'] == 1) ? 'disabled' : '' ?>>
-                                                            <!-- Botón de guardar -->
-                                                            <?php if (($nota['bloqueada'] ?? 0) == 1): ?><button
-                                                                    class="bg-gray-500 text-white p-2 rounded"
-                                                                    onclick="solicitarModificacion(<?= $nota['id'] ?>)"><i
-                                                                        class="fas fa-exclamation-circle"></i> Solicitar
-                                                                    Modificacion</button><?php else: ?>
-                                                                <button type="button"
-                                                                    class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded guardar-btn"
-                                                                    title="Guardar calificación"
-                                                                    onclick="guardarCalificacion(this.previousElementSibling)">
-                                                                    <i class="fas fa-save"></i>
-                                                                </button>
-                                                            <?php endif; ?>
+                                                                data-porcentaje="<?= $actividad->porcentaje ?>" <?= $disabled ?>>
+
+                                                            <div class="flex items-center">
+                                                                <?php if (!$bloq): ?>
+                                                                    <button type="button" class="text-blue-600 hover:text-blue-700"
+                                                                        title="Guardar y bloquear"
+                                                                        onclick="guardarCalificacion(this.parentElement.previousElementSibling)">
+                                                                        <i class="fas fa-save"></i>
+                                                                    </button>
+                                                                <?php else: ?>
+                                                                    <?php if ($ultEst === 'pendiente' || $solRev == 1): ?>
+                                                                        <span
+                                                                            class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-green-500"
+                                                                            title="Solicitud enviada"></span>
+                                                                    <?php elseif ($ultEst === 'rechazada'): ?>
+                                                                        <span
+                                                                            class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-red-500"
+                                                                            title="Solicitud rechazada"></span>
+                                                                    <?php elseif ($ultEst === 'aprobada'): ?>
+                                                                        <button type="button" class="text-gray-500" title="Bloqueada" disabled>
+                                                                            <i class="fas fa-lock"></i>
+                                                                        </button>
+                                                                    <?php else: ?>
+                                                                        <button type="button" class="text-gray-700 hover:text-gray-800"
+                                                                            title="Solicitar modificación"
+                                                                            onclick="solicitarModificacion(<?= (int) ($notaData['id'] ?? 0) ?>, this)">
+                                                                            <i class="fas fa-exclamation-circle"></i>
+                                                                        </button>
+                                                                    <?php endif; ?>
+                                                                <?php endif; ?>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 <?php endforeach; ?>
-                                                <td class="px-6 py-4 whitespace-nowrap text-center font-semibold promedio">
+
+                                                <td class="px-6 py-4 whitespace-nowrap text-center font-semibold text-gray-800">
                                                     <?= $promedios[$estudiante->id] ?? 'N/A' ?>
                                                 </td>
                                             </tr>

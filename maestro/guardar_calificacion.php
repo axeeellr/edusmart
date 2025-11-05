@@ -5,6 +5,11 @@ require_once BASE_PATH . 'functions.php';
 protegerPagina([3]); // Solo maestros
 header('Content-Type: application/json');
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['success' => false, 'message' => 'Método no permitido']);
+    exit;
+}
+
 $db = new Database();
 $data = json_decode(file_get_contents('php://input'), true);
 
@@ -21,9 +26,16 @@ if (
 
 // Normalizar valores
 $accion = $data['accion'];
-$calificacion = ($data['calificacion'] === '' || $data['calificacion'] === null)
-    ? null
-    : floatval($data['calificacion']);
+
+if ($calificacion === null || $calificacion < 0 || $calificacion > 10) {
+    echo json_encode(['success' => false, 'message' => 'Calificación inválida']);
+    exit;
+}
+
+if ($actividad_id <= 0 || $estudiante_id <= 0) {
+    echo json_encode(['success' => false, 'message' => 'Parámetros incompletos']);
+    exit;
+}
 
 try {
     // Verificar permiso del maestro
@@ -67,19 +79,14 @@ try {
             $notaIdGenerada = null;
 
             if (!empty($data['nota_id'])) {
-                if ($calificacion === null) {
-                    // Eliminar nota si no hay valor
-                    $db->query("DELETE FROM notas WHERE id = :id");
-                    $db->bind(':id', $data['nota_id']);
-                    $db->execute();
-                } else {
-                    // Actualizar nota existente (solo si no está bloqueada)
-                    $db->query("UPDATE notas SET calificacion = :calificacion 
+
+                // Actualizar nota existente (solo si no está bloqueada)
+                $db->query("UPDATE notas SET calificacion = :calificacion 
                         WHERE id = :id AND bloqueada = 0");
-                    $db->bind(':calificacion', $calificacion);
-                    $db->bind(':id', $data['nota_id']);
-                    $db->execute();
-                }
+                $db->bind(':calificacion', $calificacion);
+                $db->bind(':id', $data['nota_id']);
+                $db->execute();
+
             } else {
                 // Solo insertar si no existe una nota previa
                 if ($calificacion !== null) {

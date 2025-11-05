@@ -1,54 +1,92 @@
 <?php
 require_once __DIR__ . '/../includes/config.php';
-protegerPagina([3]); // Solo maestros pueden acceder
-
-header('Content-Type: application/json');
+protegerPagina([3]);
+header('Content-Type: application/json; charset=utf-8');
 
 try {
     $db = new Database();
-    $data = json_decode(file_get_contents("php://input"), true);
+    $body = json_decode(file_get_contents('php://input'), true) ?? [];
 
-    // Datos recibidos desde JS
-    $nota_id = intval($data['nota_id'] ?? 0);
-    $razon = trim($data['razon'] ?? '');
-    $maestro_id = $_SESSION['user_id'] ?? 0; // Maestro logueado
-
-    // Validaciones básicas
-    if ($nota_id <= 0 || $razon === '') {
-        echo json_encode(['success' => false, 'message' => 'Faltan datos para enviar la solicitud.']);
+    if (empty($body['nota_id']) || !isset($body['razon']) || trim($body['razon']) === '') {
+        echo json_encode(['success' => false, 'message' => 'Datos incompletos']);
         exit;
     }
 
-    if ($maestro_id <= 0) {
-        echo json_encode(['success' => false, 'message' => 'No se pudo identificar al maestro.']);
-        exit;
-    }
+    $nota_id = (int) $body['nota_id'];
+    $razon = trim($body['razon']);
+    $maestro_id = (int) $_SESSION['user_id'];
 
-    // Verificar que la nota existe y está bloqueada
-    $db->query("SELECT bloqueada FROM notas WHERE id = :nota_id");
+    // 1) Permisos
+    $db->query("
+        SELECT 1
+        FROM notas n
+        JOIN actividades a        ON a.id = n.actividad_id
+        JOIN grupos g             ON g.id = a.grupo_id
+        JOIN maestros_materias mm ON mm.materia_id = a.materia_id
+        WHERE n.id = :nota_id
+        AND g.maestro_id = :m
+        AND mm.maestro_id = :m
+        LIMIT 1
+    ");
     $db->bind(':nota_id', $nota_id);
-    $nota = $db->single();
-
-    if (!$nota) {
-        echo json_encode(['success' => false, 'message' => 'La nota no existe.']);
+    $db->bind(':m', $maestro_id);
+    if (!$db->single()) {
+        echo json_encode(['success' => false, 'message' => 'No tienes permiso para esta nota.']);
         exit;
     }
 
-    if ($nota->bloqueada != 1) {
-        echo json_encode(['success' => false, 'message' => 'La nota no está bloqueada y no puede solicitar modificación.']);
-        exit;
-    }
+    // 2) Insertar SOLO si no existe PENDIENTE (permite crear otra si la previa fue aceptada/rechazada)
+    $db->beginTransaction();
 
-    // Insertar solicitud en la tabla separada
-    $db->query("INSERT INTO solicitudes_modificacion (nota_id, maestro_id, razon) 
-                VALUES (:nota_id, :maestro_id, :razon)");
+    $db->query("
+        INSERT INTO solicitudes_modificacion (nota_id, maestro_id, razon, estado, fecha_solicitud)
+        SELECT :nota_id, :maestro_id, :razon, 'pendiente', NOW()
+        FROM DUAL
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM solicitudes_modificacion
+            WHERE nota_id = :nota_id_chk
+            AND maestro_id = :maestro_id_chk
+            AND estado = 'pendiente'
+            LIMIT 1
+        )
+    ");
     $db->bind(':nota_id', $nota_id);
     $db->bind(':maestro_id', $maestro_id);
     $db->bind(':razon', $razon);
+    $db->bind(':nota_id_chk', $nota_id);
+    $db->bind(':maestro_id_chk', $maestro_id);
     $db->execute();
 
-    echo json_encode(['success' => true, 'message' => 'Solicitud de modificación enviada correctamente.']);
+    if ((int) $db->rowCount() === 1) {
+        // Se insertó: marcamos la nota
+        $db->query('UPDATE notas SET solicitud_revision = 1 WHERE id = :id');
+        $db->bind(':id', $nota_id);
+        $db->execute();
 
-} catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'Error del servidor: ' . $e->getMessage()]);
+        $db->commit();
+        echo json_encode(['success' => true, 'message' => 'Solicitud enviada.']);
+        exit;
+    }
+
+    // No se insertó porque ya había una PENDIENTE
+    $db->commit();
+    echo json_encode([
+        'success' => false,
+        'code' => 'DUP_SOLICITUD',
+        'message' => 'Ya existía una solicitud pendiente.'
+    ]);
+    exit;
+
+} catch (Throwable $e) {
+    // Rollback seguro si estaba en transacción
+    if (method_exists($db ?? null, 'inTransaction') && $db->inTransaction()) {
+        $db->rollBack();
+    }
+    echo json_encode([
+        'success' => false,
+        'code' => 'SERVER_ERROR',
+        'message' => 'Error del servidor.'
+    ]);
+    exit;
 }
