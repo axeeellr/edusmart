@@ -1,14 +1,15 @@
 <?php
 // Configuración básica
-define('DB_HOST', 'localhost'); // Host de la base de datos
+define('DB_HOST', 'nozomi.proxy.rlwy.net'); // Host de la base de datos
 define('DB_USER', 'root'); // Usuario de la base de datos
-define('DB_PASS', ''); // Contraseña de la base de datos
+define('DB_PORT', 15239); 
+define('DB_PASS', 'mmuRZpkKwmDPhNEoLoWmSNvlulhjSSIH'); // Contraseña de la base de datos
 define('DB_NAME', 'smartedu'); // Nombre de la base de datos
 define('BASE_PATH', __DIR__ . '/'); // Ruta base del proyecto
 
 // Configuración de la aplicación
 define('APP_NAME', 'SmartEdu'); // Nombre de la aplicación
-define('APP_URL', 'http://localhost/edusmart'); // URL base de la aplicación
+define('APP_URL', 'http://edusmart.byethost6.com/edusmart/index.php'); // URL base de la aplicación
 define('ALERTIFY', '../alertify/alertify.min.js'); // url alertify waza
 define('ALERTIFY_CSS', '../alertify/css/alertify.min.css'); // url alertify css waza
 

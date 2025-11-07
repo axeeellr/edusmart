@@ -1,9 +1,10 @@
 <?php
 class Database {
-    private $host = DB_HOST; // Host de la base de datos
-    private $user = DB_USER; // Usuario de la base de datos
-    private $pass = DB_PASS; // Contraseña de la base de datos
-    private $name = DB_NAME; // Nombre de la base de datos
+    private $host = DB_HOST;
+    private $port = DB_PORT;
+    private $user = DB_USER;
+    private $pass = DB_PASS;
+    private $name = DB_NAME;
     
     private $dbh; // Manejador de la conexión PDO
     private $stmt; // Declaración preparada
@@ -11,19 +12,24 @@ class Database {
     
     public function __construct() {
         // Configurar el Data Source Name (DSN)
-        $dsn = 'mysql:host=' . $this->host . ';dbname=' . $this->name;
-        $options = array(
-            PDO::ATTR_PERSISTENT => true, // Conexión persistente para mejorar el rendimiento
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION // Lanzar excepciones en caso de errores
-        );
+        $dsn = 'mysql:host=' . $this->host . ';port=' . $this->port . ';dbname=' . $this->name;
+
+        $options = [
+            // NO usar conexiones persistentes en hosting compartido mientras debuggeas
+            // PDO::ATTR_PERSISTENT => true,
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_EMULATE_PREPARES => false,
+            PDO::ATTR_TIMEOUT => 10, // segundos (puede no aplicarse en todas las plataformas)
+        ];
         
         try {
             // Crear una nueva instancia de PDO
             $this->dbh = new PDO($dsn, $this->user, $this->pass, $options);
         } catch(PDOException $e) {
-            // Capturar errores de conexión y almacenarlos
-            $this->error = $e->getMessage();
-            echo $this->error;
+            error_log("[DB CONNECT ERROR] " . $e->getMessage());
+            // Mostrar error limitado (útil para debug, luego quitar)
+            echo "Database connection failed: " . htmlspecialchars($e->getMessage());
+            $this->dbh = null;
         }
     }
     
