@@ -9,11 +9,12 @@ define('BASE_PATH', __DIR__ . '/'); // Ruta base del proyecto
 
 // Configuración de la aplicación
 define('APP_NAME', 'SmartEdu'); // Nombre de la aplicación
-define('APP_URL', 'http://edusmart.byethost6.com/edusmart/index.php'); // URL base de la aplicación
+define('APP_URL', 'https://edusmart.onrender.com/'); // URL base de la aplicación
 define('ALERTIFY', '../alertify/alertify.min.js'); // url alertify waza
 define('ALERTIFY_CSS', '../alertify/css/alertify.min.css'); // url alertify css waza
 
 // Iniciar sesión
+ob_start();
 session_start(); // Inicia la sesión para manejar variables de sesión
 
 // Incluir funciones
