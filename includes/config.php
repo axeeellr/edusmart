@@ -9,7 +9,7 @@ define('BASE_PATH', __DIR__ . '/'); // Ruta base del proyecto
 
 // Configuración de la aplicación
 define('APP_NAME', 'SmartEdu'); // Nombre de la aplicación
-define('APP_URL', 'https://edusmart.onrender.com/'); // URL base de la aplicación
+define('APP_URL', 'https://edusmart-h4qr.onrender.com'); // URL base de la aplicación
 define('ALERTIFY', '../alertify/alertify.min.js'); // url alertify waza
 define('ALERTIFY_CSS', '../alertify/css/alertify.min.css'); // url alertify css waza
 
