@@ -1,90 +1,42 @@
-# ---------- STAGE 1: composer builder (PHP 8.2) ----------
-FROM php:8.2-cli AS composer-builder
+# Stage 1: build with composer
+FROM php:8.2-cli AS builder
 
-# Variables para composer
-ENV COMPOSER_ALLOW_SUPERUSER=1 \
-    COMPOSER_MEMORY_LIMIT=-1 \
-    PATH=/root/.composer/vendor/bin:$PATH
+# dependencias del sistema para extensiones y composer
+RUN apt-get update && apt-get install -y \
+    git unzip libzip-dev zlib1g-dev libonig-dev \
+    && docker-php-ext-install zip pdo pdo_mysql
+
+# instala composer (global)
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
+# copiar solo lo necesario para cachear composer
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --no-scripts
 
-# Dependencias del sistema necesarias para extensiones o paquetes
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    unzip \
-    libzip-dev \
-    zlib1g-dev \
-    libpng-dev \
-    libjpeg62-turbo-dev \
-    libfreetype6-dev \
-    libicu-dev \
-    libonig-dev \
-    libxml2-dev \
- && rm -rf /var/lib/apt/lists/*
-
-# Instala composer (si quieres usar la imagen oficial composer en lugar de esto, puedes)
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-# Copiar archivos necesarios para composer
-# Primero composer.json/composer.lock para aprovechar cache
-COPY composer.json composer.lock* /app/
-
-# Si tu composer.json usa scripts que requieren más archivos, puede ser necesario copiar todo antes.
-# Copiamos también plugins / archivos que puedan usarse en scripts de composer
-COPY . /app
-
-# Ejecutar composer install (prod)
-RUN composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
-
-# ---------- STAGE 2: runtime PHP 8.2 + Apache ----------
+# Stage 2: runtime (Apache + PHP)
 FROM php:8.2-apache
 
-# Habilitar mod_rewrite
+# extensiones runtime
+RUN apt-get update && apt-get install -y libzip-dev zlib1g-dev libonig-dev \
+    && docker-php-ext-install pdo pdo_mysql zip
+
+# habilita rewrite y otros mods si necesitas
 RUN a2enmod rewrite
-
-# Paquetes de sistema para extensiones PHP en runtime (si se requieren)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libzip-dev \
-    zlib1g-dev \
-    libpng-dev \
-    libjpeg62-turbo-dev \
-    libfreetype6-dev \
-    libonig-dev \
-    libicu-dev \
-    libxml2-dev \
- && rm -rf /var/lib/apt/lists/*
-
-# Configurar y compilar extensiones PHP necesarias
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
- && docker-php-ext-install -j$(nproc) \
-    pdo \
-    pdo_mysql \
-    mysqli \
-    zip \
-    gd \
-    mbstring \
-    intl \
-    xml \
-    opcache
-
-# Copiar composer por si se necesita en runtime (opcional)
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-# Copiar el código
-COPY . /var/www/html
-
-# Copiar vendor desde la etapa builder (ahora sí existe)
-COPY --from=composer-builder /app/vendor /var/www/html/vendor
-COPY --from=composer-builder /app/vendor-bin /var/www/html/vendor-bin 2>/dev/null || true
 
 WORKDIR /var/www/html
 
-# Ajustar permisos
+# copia archivos de la app
+COPY . /var/www/html
+
+# copia vendor desde el stage builder
+COPY --from=builder /app/vendor /var/www/html/vendor
+
+# permisos (ajusta según necesites)
 RUN chown -R www-data:www-data /var/www/html \
- && chmod -R 755 /var/www/html
+    && chmod -R 755 /var/www/html
 
-# Configurar Apache para permitir .htaccess
-RUN printf '\n<Directory /var/www/html/>\n    AllowOverride All\n</Directory>\n' >> /etc/apache2/apache2.conf
-
+# Exponer puerto (Railway detecta automáticamente, normalmente 8080 o 80)
 EXPOSE 80
-CMD ["apache2-foreground"]
+
+# Comando por defecto ya es start de apache en esta imagen
