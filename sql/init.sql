@@ -405,7 +405,7 @@ DROP TABLE IF EXISTS `estudiantes`;
 CREATE TABLE IF NOT EXISTS `estudiantes` (
   `id` int NOT NULL AUTO_INCREMENT,
   `nombre_completo` varchar(100) NOT NULL,
-  `fecha_nacimiento` date NOT NULL,
+  `fecha_nacimiento` date,
   `grupo_id` int NOT NULL,
   `estado` enum('activo','inactivo','retirado','egresado') DEFAULT 'activo',
   PRIMARY KEY (`id`),

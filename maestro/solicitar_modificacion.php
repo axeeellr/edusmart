@@ -24,13 +24,16 @@ try {
         JOIN grupos g             ON g.id = a.grupo_id
         JOIN maestros_materias mm ON mm.materia_id = a.materia_id
         WHERE n.id = :nota_id
-        AND g.maestro_id = :m
-        AND mm.maestro_id = :m
+        AND g.maestro_id = :m1
+        AND mm.maestro_id = :m2
         LIMIT 1
     ");
     $db->bind(':nota_id', $nota_id);
-    $db->bind(':m', $maestro_id);
-    if (!$db->single()) {
+    $db->bind(':m1', $maestro_id);
+    $db->bind(':m2', $maestro_id);
+    $perm = $db->single();
+
+    if (!$perm) {
         echo json_encode(['success' => false, 'message' => 'No tienes permiso para esta nota.']);
         exit;
     }
@@ -80,13 +83,26 @@ try {
 
 } catch (Throwable $e) {
     // Rollback seguro si estaba en transacción
-    if (method_exists($db ?? null, 'inTransaction') && $db->inTransaction()) {
+    if (isset($db) && method_exists($db, 'inTransaction') && $db->inTransaction()) {
         $db->rollBack();
     }
-    echo json_encode([
-        'success' => false,
-        'code' => 'SERVER_ERROR',
-        'message' => 'Error del servidor.'
-    ]);
+
+    // DEBUG: en desarrollo puedes devolver el mensaje real (temporal).
+    // En producción deja el mensaje genérico y registra el error en logs.
+    if (defined('APP_DEBUG') && APP_DEBUG === true) {
+        error_log('[SOLICITUD_MOD_ERROR] ' . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'code' => 'SERVER_ERROR',
+            'message' => 'Error del servidor: ' . $e->getMessage()
+        ]);
+    } else {
+        error_log('[SOLICITUD_MOD_ERROR] ' . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'code' => 'SERVER_ERROR',
+            'message' => 'Error del servidor.'
+        ]);
+    }
     exit;
 }
