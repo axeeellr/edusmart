@@ -15,14 +15,12 @@ if (empty($data['actividad_id'])) {
 }
 
 try {
-    // Verificar que la actividad pertenece a un grupo del maestro
+    // Verificar que la actividad pertenece a un grupo del maestro - CORREGIDO
     $db->query("SELECT a.id 
                 FROM actividades a
                 JOIN grupos g ON a.grupo_id = g.id
-                JOIN maestros_materias mm ON a.materia_id = mm.materia_id
                 WHERE a.id = :actividad_id 
-                AND g.maestro_id = :maestro_id
-                AND mm.maestro_id = :maestro_id");
+                AND g.maestro_id = :maestro_id");
     $db->bind(':actividad_id', $data['actividad_id']);
     $db->bind(':maestro_id', $_SESSION['user_id']);
     $actividad = $db->single();
@@ -42,7 +40,7 @@ try {
     $db->bind(':actividad_id', $data['actividad_id']);
     $db->execute();
     
-    echo json_encode(['success' => true]);
+    echo json_encode(['success' => true, 'message' => 'Actividad eliminada correctamente']);
 } catch (PDOException $e) {
     echo json_encode(['success' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()]);
 }

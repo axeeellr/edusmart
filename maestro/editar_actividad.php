@@ -23,14 +23,12 @@ if (!$id || !$nombre || !$descripcion || !$porcentaje || !$materia_id || !$trime
 }
 
 try {
-    // Verificar permiso
+    // Verificar permiso - CORREGIDO
     $db->query("SELECT a.id 
                 FROM actividades a
                 JOIN grupos g ON a.grupo_id = g.id
-                JOIN maestros_materias mm ON a.materia_id = mm.materia_id
                 WHERE a.id = :actividad_id 
-                AND g.maestro_id = :maestro_id
-                AND mm.maestro_id = :maestro_id");
+                AND g.maestro_id = :maestro_id");
     $db->bind(':actividad_id', $id);
     $db->bind(':maestro_id', $_SESSION['user_id']);
     $actividad = $db->single();
@@ -60,11 +58,11 @@ try {
     // Actualizar actividad
     $db->query("UPDATE actividades 
                 SET nombre = :nombre, descripcion = :descripcion, porcentaje = :porcentaje 
-                WHERE id = :actividad_id");
+                WHERE id = :id");
     $db->bind(':nombre', $nombre);
     $db->bind(':descripcion', $descripcion);
     $db->bind(':porcentaje', $porcentaje);
-    $db->bind(':actividad_id', $id);
+    $db->bind(':id', $id);
     $db->execute();
 
     echo json_encode(['success' => true, 'message' => 'Actividad actualizada correctamente']);
