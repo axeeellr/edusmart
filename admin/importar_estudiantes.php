@@ -46,9 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo'])) {
 
         // Iniciar una transacción para insertar los datos
         $db->beginTransaction();
-        $insertados = 0; // Contador de estudiantes insertados
-
-        //contadores de inserciones
+        
+        // Contadores de inserciones
         $insertados = 0;
         $duplicados = 0;
 
@@ -56,25 +55,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo'])) {
         for ($i = $startRow; $i < count($data); $i++) {
             $row = $data[$i];
 
-            // Verificar que las columnas necesarias no estén vacías
-            if (empty($row[1]) || empty($row[2]) || empty($row[3])) {
+            // Verificar que las columnas necesarias no estén vacías (solo NIE y Nombre)
+            if (empty($row[1]) || empty($row[2])) {
                 continue;
             }
+            
             $nie = trim($row[1]);
             $nombre = trim($row[2]);
-            $birth = trim($row[3]);
-
-            //cambiamso el formato de fecha dia-mes-año a año-mes-dia
-            $dateObj = DateTime::createFromFormat('d/m/Y', $birth);
-
-            // Validar formato de fecha
-            $dateObj = DateTime::createFromFormat('d/m/Y', $birth);
-            if (!$dateObj) {
-                // Si la fecha no tiene el formato esperado, la ignoramos o lanzamos excepción
-                throw new Exception("Formato de fecha inválido en fila " . ($i + 1));
-            }
-
-            $birth = $dateObj->format('Y-m-d');
+            
+            // FECHA PREDETERMINADA - OPCIÓN 1
+            $birth = '2000-01-01'; // Fecha predeterminada
 
             // Verificar si el estudiante ya existe
             $db->query("SELECT COUNT(*) as total FROM estudiantes WHERE id = :nie");
@@ -83,10 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo'])) {
             $existe = $db->single()->total;
 
             if ($existe == 0) {
-
                 // Insertar solo si no existe
-                $db->query("INSERT INTO estudiantes (id, nombre_completo, fecha_nacimiento,grupo_id) 
-                VALUES (:nie, :nombre,:fecha_nacimiento, :grupo_id)");
+                $db->query("INSERT INTO estudiantes (id, nombre_completo, fecha_nacimiento, grupo_id) 
+                VALUES (:nie, :nombre, :fecha_nacimiento, :grupo_id)");
                 $db->bind(':nie', $nie);
                 $db->bind(':nombre', $nombre);
                 $db->bind(':fecha_nacimiento', $birth);
@@ -96,17 +85,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo'])) {
                     $insertados++;
                 }
             } else {
-                // Puedes contar los duplicados si quieres
+                // Contar duplicados
                 $duplicados++;
             }
-
         }
 
         // Confirmar la transacción
         $db->commit();
         $_SESSION['success'] = "Se importaron $insertados estudiantes correctamente, $duplicados registros ya existian";
 
-        //validacion de errores
+    // Validación de errores
     } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
         $_SESSION['error'] = "El archivo no es un Excel válido o está dañado.";
     } catch (Exception $e) {
@@ -119,3 +107,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo'])) {
     header("Location: grupos.php");
     exit;
 }
+?>

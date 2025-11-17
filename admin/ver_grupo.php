@@ -115,6 +115,12 @@ $maestros = $db->resultSet();
                             class="flex items-center text-sm bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
                             <i class="fas fa-plus mr-1"></i> Agregar
                         </button>
+                        <?php if (count($estudiantes) > 0): ?>
+                        <button onclick="document.getElementById('modal-eliminar-todos').classList.remove('hidden')"
+                            class="flex items-center text-sm bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                            <i class="fas fa-trash-alt mr-1"></i> Eliminar Todos
+                        </button>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -325,6 +331,35 @@ $maestros = $db->resultSet();
             </div>
         </div>
     </div>
+
+    <!-- Modal para eliminar todos los estudiantes -->
+    <div id="modal-eliminar-todos"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-red-600">Eliminar Todos los Estudiantes</h3>
+                    <button onclick="cerrarModal('modal-eliminar-todos')"
+                        class="text-gray-500 hover:text-gray-700">&times;</button>
+                </div>
+                <div class="mb-4">
+                    <p class="text-gray-700">¿Estás seguro de que deseas eliminar todos los estudiantes de este grupo?</p>
+                    <p class="text-red-600 font-semibold mt-2">Esta acción no se puede deshacer.</p>
+                    <p class="text-sm text-gray-500 mt-2">Se eliminarán <?= count($estudiantes) ?> estudiantes.</p>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="cerrarModal('modal-eliminar-todos')"
+                        class="px-4 py-2 border rounded-lg hover:bg-gray-100">
+                        Cancelar
+                    </button>
+                    <button onclick="eliminarTodosEstudiantes()" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">
+                        Eliminar Todos
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Funciones para manejar los modales
         function cerrarModal(id) {
@@ -338,7 +373,7 @@ $maestros = $db->resultSet();
             document.getElementById('modal-editar').classList.remove('hidden');
         }
 
-        // Eliminar estudiante
+        // Eliminar estudiante individual
         function eliminarEstudiante(id) {
             if (confirm('¿Estás seguro de eliminar este estudiante?')) {
                 fetch(`eliminar_estudiante.php?id=${id}`, {
@@ -354,6 +389,27 @@ $maestros = $db->resultSet();
                             location.reload();
                         } else {
                             alert(data.message || 'Error al eliminar el estudiante');
+                        }
+                    });
+            }
+        }
+
+        // Eliminar todos los estudiantes
+        function eliminarTodosEstudiantes() {
+            if (confirm('¿ESTÁS ABSOLUTAMENTE SEGURO? Se eliminarán TODOS los estudiantes de este grupo.')) {
+                fetch(`eliminar_todos_estudiantes.php`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `grupo_id=<?= $grupo_id ?>`
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert(data.message || 'Error al eliminar los estudiantes');
                         }
                     });
             }
